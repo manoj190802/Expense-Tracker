@@ -122,6 +122,23 @@ export default function Home() {
     loadData();
   }, []);
 
+  // Scroll to top when active view changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeView]);
+
+  // Lock background scroll on mobile when sidebar is open
+  useEffect(() => {
+    if (isSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isSidebarOpen]);
+
   // Save transactions to LocalStorage only AFTER initial loading is complete
   useEffect(() => {
     if (isLoaded) {
