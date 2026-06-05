@@ -91,12 +91,16 @@ body.dark-theme {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background: var(--bg-gradient);
   background-attachment: fixed;
   color: var(--text-primary);
   min-height: 100vh;
-  overflow-x: hidden;
   line-height: 1.5;
   transition: background var(--transition-speed) ease, color var(--transition-speed) ease;
 }
@@ -149,6 +153,8 @@ ul {
   grid-template-columns: 280px 1fr;
   min-height: 100vh;
   position: relative;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* --- SIDEBAR PANEL --- */
@@ -417,6 +423,8 @@ body.dark-theme .slider-round {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* --- HEADER / TOPBAR --- */
