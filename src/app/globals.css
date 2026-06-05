@@ -72,7 +72,7 @@ body.dark-theme {
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
   --glass-blur: 20px;
 
-  --sidebar-bg: rgba(10, 11, 20, 0.7);
+  --sidebar-bg: #0a0b14;
   --input-bg: rgba(20, 22, 37, 0.6);
   --input-border: rgba(255, 255, 255, 0.08);
   
