@@ -1,0 +1,6 @@
+{
+  "appId": "com.auraspend.app",
+  "appName": "AuraSpend",
+  "webDir": "out",
+  "bundledWebRuntime": false
+}
