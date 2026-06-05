@@ -6,17 +6,13 @@ workflows:
     environment:
       groups:
         - Environment variables
-      vars:
-        JAVA_VERSION: "21"
+      java: 21
     triggering:
       events:
         - push
       branch_patterns:
         - pattern: main
     scripts:
-      - name: Set Java Version
-        script: |
-          sdk use java 21.0.2-open || sdk use java 21-open
       - name: Install dependencies
         script: |
           npm install
