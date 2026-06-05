@@ -14,8 +14,8 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
-  title: "AuraSpend — Premium Expense Tracker",
-  description: "AuraSpend is a premium, glassmorphism-themed Expense Tracker with dynamic charts, local storage persistence, CSV exporting, budgeting alerts, and multiple views.",
+  title: "InEx-tracker — Premium Expense Tracker",
+  description: "InEx-tracker is a premium, glassmorphism-themed Expense Tracker with dynamic charts, local storage persistence, CSV exporting, budgeting alerts, and multiple views.",
 };
 
 export default function RootLayout({ children }) {

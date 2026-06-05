@@ -481,7 +481,7 @@ export default function Home() {
         </main>
         
         <footer className="app-footer">
-          <span>AuraSpend Expense Tracker Dashboard &copy; 2026. Made with Google Antigravity.</span>
+          <span>InEx-tracker Expense Tracker Dashboard &copy; 2026. Made with Google Antigravity.</span>
         </footer>
       </div>
 

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">AuraSpend</string>
-    <string name="title_activity_main">AuraSpend</string>
+    <string name="app_name">InEx-tracker</string>
+    <string name="title_activity_main">InEx-tracker</string>
     <string name="package_name">com.auraspend.app</string>
     <string name="custom_url_scheme">com.auraspend.app</string>
 </resources>

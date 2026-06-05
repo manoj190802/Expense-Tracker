@@ -1,6 +1,6 @@
 {
   "appId": "com.auraspend.app",
-  "appName": "AuraSpend",
+  "appName": "InEx-tracker",
   "webDir": "out",
   "bundledWebRuntime": false
 }

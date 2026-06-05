@@ -41,7 +41,7 @@ export default function Sidebar({
         <div className="logo-icon-wrapper">
           <Wallet className="logo-icon" />
         </div>
-        <span className="logo-text">Aura<span>Spend</span></span>
+        <span className="logo-text">InEx<span>-tracker</span></span>
       </div>
       
       <nav className="sidebar-nav">
