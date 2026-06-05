@@ -12,8 +12,9 @@ import AnalyticsView from '../components/AnalyticsView';
 import SettingsView from '../components/SettingsView';
 import WipeConfirmModal from '../components/WipeConfirmModal';
 
-// Utilities
+// Utilities & Database
 import { generateUUID, getCurrentMonthYearStr } from '../utils/helpers';
+import { supabase } from '../utils/supabaseClient';
 
 export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
@@ -29,45 +30,113 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isWipeModalOpen, setIsWipeModalOpen] = useState(false);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Mount logic (avoiding hydration mismatches)
+  // Mount logic (Load theme from LocalStorage and data from Supabase)
   useEffect(() => {
     setIsMounted(true);
     
-    // Load from LocalStorage
-    const cachedTransactions = localStorage.getItem('auraspend_transactions');
-    if (cachedTransactions) {
-      try {
-        setTransactions(JSON.parse(cachedTransactions));
-      } catch (e) {
-        console.error("Failed parsing transactions", e);
-      }
-    }
-
-    const cachedBudget = localStorage.getItem('auraspend_budget_limit');
-    if (cachedBudget !== null) {
-      setBudgetLimit(parseFloat(cachedBudget));
-    }
-
+    // Load local client theme preference
     const cachedTheme = localStorage.getItem('auraspend_theme');
     if (cachedTheme) {
       setTheme(cachedTheme);
     }
+
+    // Async Fetch from Supabase with LocalStorage Fallback
+    async function loadData() {
+      let loadedTransactions = [];
+      let loadedBudgetLimit = 50000;
+      let supabaseSuccess = false;
+
+      try {
+        // 1. Fetch transactions from Supabase
+        const { data: txs, error: txError } = await supabase
+          .from('transactions')
+          .select('*')
+          .order('date', { ascending: false });
+
+        if (txError) {
+          console.warn("Supabase fetch transactions error, falling back to LocalStorage:", txError.message);
+        } else if (txs) {
+          loadedTransactions = txs;
+          supabaseSuccess = true;
+        }
+
+        // 2. Fetch budget limit from Supabase
+        const { data: sett, error: settError } = await supabase
+          .from('settings')
+          .select('*')
+          .eq('key', 'budget_limit')
+          .single();
+
+        if (settError) {
+          if (settError.code !== 'PGRST116') { // PGRST116 is code for "no rows returned"
+            console.warn("Supabase fetch budget limit error:", settError.message);
+          }
+        } else if (sett) {
+          loadedBudgetLimit = parseFloat(sett.value);
+        }
+      } catch (err) {
+        console.warn("Unexpected error connecting to Supabase database, falling back to LocalStorage:", err);
+      }
+
+      // Check LocalStorage cache values
+      const cachedTransactions = localStorage.getItem('auraspend_transactions');
+      let localTxs = [];
+      if (cachedTransactions) {
+        try {
+          localTxs = JSON.parse(cachedTransactions);
+        } catch (e) {
+          console.error("Failed parsing cached transactions", e);
+        }
+      }
+
+      const cachedBudget = localStorage.getItem('auraspend_budget_limit');
+      let localBudgetLimit = 50000;
+      if (cachedBudget !== null) {
+        localBudgetLimit = parseFloat(cachedBudget);
+      }
+
+      // Fallback to local storage if Supabase failed OR if Supabase returned empty but we have local data
+      if (!supabaseSuccess || (loadedTransactions.length === 0 && localTxs.length > 0)) {
+        loadedTransactions = localTxs;
+        loadedBudgetLimit = localBudgetLimit;
+
+        // If Supabase was successful but returned empty database, sync local cache up to remote
+        if (supabaseSuccess && localTxs.length > 0) {
+          console.log("Syncing local storage data to empty Supabase database...");
+          supabase.from('transactions').insert(localTxs).then(({ error }) => {
+            if (error) console.warn("Background transactions sync error:", error.message);
+          });
+          supabase.from('settings').upsert({ key: 'budget_limit', value: localBudgetLimit.toString() }).then(({ error }) => {
+            if (error) console.warn("Background settings sync error:", error.message);
+          });
+        }
+      }
+
+      setTransactions(loadedTransactions);
+      setBudgetLimit(loadedBudgetLimit);
+      setIsLoaded(true); // Set isLoaded to true only after initial load finishes
+    }
+
+    loadData();
   }, []);
 
-  // Save to LocalStorage when states change
+  // Save transactions to LocalStorage only AFTER initial loading is complete
   useEffect(() => {
-    if (isMounted) {
+    if (isLoaded) {
       localStorage.setItem('auraspend_transactions', JSON.stringify(transactions));
     }
-  }, [transactions, isMounted]);
+  }, [transactions, isLoaded]);
 
+  // Save budget limit to LocalStorage only AFTER initial loading is complete
   useEffect(() => {
-    if (isMounted) {
+    if (isLoaded) {
       localStorage.setItem('auraspend_budget_limit', budgetLimit.toString());
     }
-  }, [budgetLimit, isMounted]);
+  }, [budgetLimit, isLoaded]);
 
+  // Save client-side theme preferences to LocalStorage
   useEffect(() => {
     if (isMounted) {
       localStorage.setItem('auraspend_theme', theme);
@@ -99,18 +168,53 @@ export default function Home() {
   }, [transactions, budgetLimit]);
 
   // Add/Edit Transaction Handler
-  const handleFormSubmit = (txData) => {
+  const handleFormSubmit = async (txData) => {
     if (txData.id) {
       // Edit mode
-      setTransactions(prev => prev.map(tx => tx.id === txData.id ? { ...tx, ...txData } : tx));
+      const updatedTx = {
+        name: txData.name,
+        amount: txData.amount,
+        type: txData.type,
+        date: txData.date,
+        category: txData.category
+      };
+
+      // Optimistic update in UI state for responsive feel (saved to local storage automatically by hook effect)
+      setTransactions(prev => prev.map(tx => tx.id === txData.id ? { ...tx, ...updatedTx } : tx));
       setEditingTransactionId(null);
+
+      // Save to Supabase in background
+      const { error } = await supabase
+        .from('transactions')
+        .update(updatedTx)
+        .eq('id', txData.id);
+
+      if (error) {
+        console.warn("Supabase transaction update error (synced to LocalStorage):", error.message);
+      }
     } else {
       // Add mode
+      const id = generateUUID();
       const newTx = {
-        ...txData,
-        id: generateUUID()
+        id,
+        name: txData.name,
+        amount: txData.amount,
+        type: txData.type,
+        date: txData.date,
+        category: txData.category
       };
+
+      // Optimistic update in UI state
       setTransactions(prev => [...prev, newTx]);
+
+      // Save to Supabase in background
+      const { error } = await supabase
+        .from('transactions')
+        .insert([newTx]);
+
+      if (error) {
+        console.warn("Supabase transaction insert error (synced to LocalStorage):", error.message);
+      }
     }
   };
 
@@ -119,10 +223,21 @@ export default function Home() {
     setActiveView('dashboard');
   };
 
-  const handleDeleteSelect = (id) => {
+  const handleDeleteSelect = async (id) => {
+    // Optimistic update in UI state
     setTransactions(prev => prev.filter(tx => tx.id !== id));
     if (editingTransactionId === id) {
       setEditingTransactionId(null);
+    }
+
+    // Delete in Supabase in background
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.warn("Supabase transaction delete error (synced to LocalStorage):", error.message);
     }
   };
 
@@ -159,7 +274,7 @@ export default function Home() {
   };
 
   // Load Mock Data
-  const handleLoadMockData = () => {
+  const handleLoadMockData = async () => {
     const MOCK_TRANSACTIONS = [
       { id: 'mock1', name: 'Monthly Salary', amount: 80000, type: 'income', date: '', category: 'Salary' },
       { id: 'mock2', name: 'Apartment Rent', amount: 15000, type: 'expense', date: '', category: 'Bills' },
@@ -191,18 +306,48 @@ export default function Home() {
       };
     });
 
+    // Update UI state immediately
     setTransactions(enrichedMock);
     setBudgetLimit(40000);
     setActiveView('dashboard');
-    alert('Mock transactions successfully loaded into application cache.');
+
+    try {
+      // Clear remote database first to prevent mock conflicts
+      await supabase.from('transactions').delete().neq('id', '');
+      
+      const { error: txError } = await supabase.from('transactions').insert(enrichedMock);
+      const { error: settError } = await supabase.from('settings').upsert({ key: 'budget_limit', value: '40000' });
+
+      if (txError || settError) {
+        console.warn("Supabase mock data write errors:", txError, settError);
+        alert("Mock transactions successfully loaded locally.");
+      } else {
+        alert('Mock transactions successfully loaded and synced to remote database.');
+      }
+    } catch (err) {
+      console.error("Mock data Supabase write fail:", err);
+    }
+  };
+
+  // Save Budget Configuration
+  const handleSaveBudget = async (val) => {
+    // Update local state
+    setBudgetLimit(val);
+    alert('Monthly budget limit configurations updated successfully.');
+
+    // Save to settings table in Supabase
+    const { error } = await supabase
+      .from('settings')
+      .upsert({ key: 'budget_limit', value: val.toString() });
+
+    if (error) {
+      console.warn("Supabase settings write error (synced locally):", error.message);
+    }
   };
 
   // Wipe Data Settings
-  const handleWipeData = () => {
-    localStorage.removeItem('auraspend_transactions');
-    localStorage.removeItem('auraspend_budget_limit');
-    localStorage.removeItem('auraspend_theme');
-    
+  const handleWipeData = async () => {
+    // Update local UI states
     setTransactions([]);
     setBudgetLimit(50000);
     setTheme('dark');
@@ -210,7 +355,29 @@ export default function Home() {
     setIsWipeModalOpen(false);
     setActiveView('dashboard');
     
-    alert('All LocalStorage details and records have been deleted.');
+    // Clear local theme preference
+    localStorage.removeItem('auraspend_theme');
+
+    try {
+      // Wipe tables on Supabase
+      const { error: txError } = await supabase
+        .from('transactions')
+        .delete()
+        .neq('id', '');
+      
+      const { error: settError } = await supabase
+        .from('settings')
+        .upsert({ key: 'budget_limit', value: '50000' });
+
+      if (txError || settError) {
+        console.warn("Supabase database wipe errors:", txError, settError);
+        alert('All local database records and transaction logs have been wiped successfully.');
+      } else {
+        alert('All database records and transaction logs have been wiped successfully.');
+      }
+    } catch (err) {
+      console.error("Unexpected error during database wipe:", err);
+    }
   };
 
   // Views switch
@@ -248,10 +415,7 @@ export default function Home() {
         return (
           <SettingsView 
             budgetLimit={budgetLimit}
-            onSaveBudget={(val) => {
-              setBudgetLimit(val);
-              alert('Monthly budget limit configurations updated successfully.');
-            }}
+            onSaveBudget={handleSaveBudget}
             onExportCsv={handleExportCsv}
             onLoadMockData={handleLoadMockData}
             onWipeClick={() => setIsWipeModalOpen(true)}
