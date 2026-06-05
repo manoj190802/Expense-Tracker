@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuraSpend — Premium Expense Tracker</title>
+  
+  <!-- Meta tags for SEO -->
+  <meta name="description" content="AuraSpend is a premium, glassmorphism-themed Expense Tracker with dynamic charts, local storage persistence, CSV exporting, budgeting alerts, and multiple views.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="dark-theme">
+  <!-- Main Grid Layout -->
+  <div class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon-wrapper">
+          <i data-lucide="wallet" class="logo-icon"></i>
+        </div>
+        <span class="logo-text">Aura<span>Spend</span></span>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <ul>
+          <li>
+            <button class="nav-btn active" data-view="dashboard" id="btn-nav-dashboard">
+              <i data-lucide="layout-dashboard"></i>
+              <span>Dashboard</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="transactions" id="btn-nav-transactions">
+              <i data-lucide="arrow-left-right"></i>
+              <span>Transactions</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="analytics" id="btn-nav-analytics">
+              <i data-lucide="pie-chart"></i>
+              <span>Analytics</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="settings" id="btn-nav-settings">
+              <i data-lucide="settings"></i>
+              <span>Settings</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+      
+      <!-- Budget Quick Widget -->
+      <div class="budget-widget glass-card">
+        <div class="widget-header">
+          <span class="widget-title">Monthly Budget</span>
+          <i data-lucide="info" class="widget-info-icon" title="Configure in settings"></i>
+        </div>
+        <div class="widget-progress">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="widget-budget-progress" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="widget-details">
+          <span class="widget-spent" id="widget-budget-spent">₹0.00</span>
+          <span class="widget-limit" id="widget-budget-limit">/ ₹0.00</span>
+        </div>
+      </div>
+      
+      <!-- User profile in sidebar footer -->
+      <div class="sidebar-footer">
+        <div class="theme-toggle-wrapper">
+          <span class="theme-label"><i data-lucide="sun" id="sun-indicator"></i> Light Mode</span>
+          <label class="switch-toggle">
+            <input type="checkbox" id="theme-checkbox" checked>
+            <span class="slider-round"></span>
+          </label>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Main Content Area -->
+    <div class="main-content">
+      
+      <!-- Top Bar / Header -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="sidebar-menu-btn" id="mobile-sidebar-toggle" aria-label="Toggle Sidebar">
+            <i data-lucide="menu"></i>
+          </button>
+          <h1 id="view-title" class="view-title">Dashboard</h1>
+        </div>
+        
+        <div class="topbar-right">
+          <!-- Quick stats overview -->
+          <div class="quick-status-badge hide-mobile">
+            <span class="dot-indicator green"></span>
+            <span>Local Sync Active</span>
+          </div>
+          
+          <button class="btn btn-secondary csv-export-btn" id="btn-export-csv">
+            <i data-lucide="download"></i>
+            <span>Export CSV</span>
+          </button>
+        </div>
+      </header>
+      
+      <!-- Content Container -->
+      <main class="content-body">
+        
+        <!-- Danger/Warning Alert for Budget -->
+        <div class="alert-container hidden" id="budget-alert-banner">
+          <div class="alert-content warning">
+            <i data-lucide="alert-triangle" class="alert-icon"></i>
+            <div class="alert-message">
+              <strong>Budget Warning!</strong> You have exceeded your configured budget limit.
+            </div>
+            <button class="alert-close-btn" id="btn-close-alert" aria-label="Close Alert">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- ================= DASHBOARD VIEW ================= -->
+        <section id="view-dashboard" class="content-section active">
+          
+          <!-- Stats Summary Grid -->
+          <div class="stats-grid">
+            <!-- Balance Card -->
+            <div class="stat-card glass-card balance">
+              <div class="stat-card-header">
+                <span class="card-label">Total Balance</span>
+                <div class="icon-badge primary">
+                  <i data-lucide="credit-card"></i>
+                </div>
+              </div>
+              <div class="stat-card-value" id="card-total-balance">₹0.00</div>
+              <div class="stat-card-footer">
+                <span class="trend neutral" id="card-balance-trend">Current Net Balance</span>
+              </div>
+            </div>
+            
+            <!-- Income Card -->
+            <div class="stat-card glass-card income">
+              <div class="stat-card-header">
+                <span class="card-label">Total Income</span>
+                <div class="icon-badge success">
+                  <i data-lucide="arrow-up-right"></i>
+                </div>
+              </div>
+              <div class="stat-card-value" id="card-total-income">₹0.00</div>
+              <div class="stat-card-footer">
+                <span class="trend positive" id="card-income-count">0 items</span>
+              </div>
+            </div>
+            
+            <!-- Expense Card -->
+            <div class="stat-card glass-card expense">
+              <div class="stat-card-header">
+                <span class="card-label">Total Expense</span>
+                <div class="icon-badge danger">
+                  <i data-lucide="arrow-down-left"></i>
+                </div>
+              </div>
+              <div class="stat-card-value" id="card-total-expense">₹0.00</div>
+              <div class="stat-card-footer">
+                <span class="trend negative" id="card-expense-count">0 items</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Charts Section Grid -->
+          <div class="dashboard-grid-2col chart-row">
+            <!-- Monthly Summary Chart -->
+            <div class="chart-card glass-card">
+              <div class="card-header">
+                <h3 class="card-title">Monthly Expense Summary</h3>
+                <span class="card-subtitle">Monthly breakdown of outgoings</span>
+              </div>
+              <div class="chart-wrapper">
+                <canvas id="monthlyChart"></canvas>
+              </div>
+            </div>
+            
+            <!-- Category Distribution Chart -->
+            <div class="chart-card glass-card">
+              <div class="card-header">
+                <h3 class="card-title">Expense Category Distribution</h3>
+                <span class="card-subtitle">Share of spending per category</span>
+              </div>
+              <div class="chart-wrapper">
+                <canvas id="categoryChart"></canvas>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Bottom Layout: Form and Table -->
+          <div class="dashboard-grid-2col bottom-row">
+            
+            <!-- Transaction Form Card -->
+            <div class="form-card glass-card">
+              <div class="card-header">
+                <h3 class="card-title" id="form-title">Add Transaction</h3>
+                <span class="card-subtitle" id="form-subtitle">Record a new flow of cash</span>
+              </div>
+              
+              <form id="transaction-form" novalidate>
+                <input type="hidden" id="edit-transaction-id" value="">
+                
+                <!-- Transaction Title -->
+                <div class="form-group">
+                  <label for="input-name">Transaction Name</label>
+                  <div class="input-wrapper">
+                    <i data-lucide="tag" class="input-icon"></i>
+                    <input type="text" id="input-name" placeholder="e.g., Target Groceries" required>
+                  </div>
+                  <span class="error-msg" id="err-name">Please enter a valid transaction name</span>
+                </div>
+                
+                <div class="form-row">
+                  <!-- Transaction Amount -->
+                  <div class="form-group">
+                    <label for="input-amount">Amount (₹)</label>
+                    <div class="input-wrapper">
+                      <i data-lucide="dollar-sign" class="input-icon"></i>
+                      <input type="number" id="input-amount" step="0.01" min="0.01" placeholder="0.00" required>
+                    </div>
+                    <span class="error-msg" id="err-amount">Enter a positive number (> 0)</span>
+                  </div>
+                  
+                  <!-- Transaction Type -->
+                  <div class="form-group">
+                    <label for="input-type">Type</label>
+                    <div class="input-wrapper">
+                      <i data-lucide="arrow-left-right" class="input-icon"></i>
+                      <select id="input-type" required>
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                      </select>
+                    </div>
+                    <span class="error-msg" id="err-type">Please select transaction type</span>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <!-- Transaction Date -->
+                  <div class="form-group">
+                    <label for="input-date">Date</label>
+                    <div class="input-wrapper">
+                      <i data-lucide="calendar" class="input-icon"></i>
+                      <input type="date" id="input-date" required>
+                    </div>
+                    <span class="error-msg" id="err-date">Please select a valid date</span>
+                  </div>
+                  
+                  <!-- Transaction Category -->
+                  <div class="form-group">
+                    <label for="input-category">Category</label>
+                    <div class="input-wrapper">
+                      <i data-lucide="layers" class="input-icon"></i>
+                      <select id="input-category" required>
+                        <!-- Options generated in JS or static -->
+                        <option value="Food">Food</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Bills">Bills</option>
+                        <option value="Salary">Salary</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <span class="error-msg" id="err-category">Please select a category</span>
+                  </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="form-actions">
+                  <button type="button" class="btn btn-secondary hidden" id="btn-cancel-edit">Cancel Edit</button>
+                  <button type="submit" class="btn btn-primary" id="btn-submit-form">
+                    <i data-lucide="plus" id="submit-icon"></i>
+                    <span id="submit-text">Add Transaction</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+            
+            <!-- Recent Transactions Table Card -->
+            <div class="recent-transactions-card glass-card">
+              <div class="card-header space-between">
+                <div>
+                  <h3 class="card-title">Recent Transactions</h3>
+                  <span class="card-subtitle">Last 5 logs</span>
+                </div>
+                <button class="btn-text-link" id="link-show-all-transactions">
+                  <span>View All</span>
+                  <i data-lucide="arrow-right"></i>
+                </button>
+              </div>
+              
+              <div class="recent-list-container">
+                <div class="empty-state hidden" id="dashboard-empty-state">
+                  <i data-lucide="inbox" class="empty-icon"></i>
+                  <p class="empty-title">No transactions registered</p>
+                  <p class="empty-desc">Create your first transaction using the form to populate details.</p>
+                </div>
+                <ul class="transaction-list" id="dashboard-recent-list">
+                  <!-- Rendered dynamically via JS -->
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- ================= TRANSACTIONS VIEW ================= -->
+        <section id="view-transactions" class="content-section">
+          
+          <!-- Filters Toolbar -->
+          <div class="toolbar-card glass-card">
+            <div class="toolbar-search">
+              <i data-lucide="search" class="search-icon"></i>
+              <input type="text" id="filter-search" placeholder="Search transactions...">
+            </div>
+            
+            <div class="toolbar-filters">
+              <div class="filter-group">
+                <label for="filter-type">Type</label>
+                <select id="filter-type">
+                  <option value="all">All Types</option>
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+              </div>
+              
+              <div class="filter-group">
+                <label for="filter-category">Category</label>
+                <select id="filter-category">
+                  <option value="all">All Categories</option>
+                  <option value="Food">Food</option>
+                  <option value="Travel">Travel</option>
+                  <option value="Shopping">Shopping</option>
+                  <option value="Bills">Bills</option>
+                  <option value="Salary">Salary</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              
+              <div class="filter-group">
+                <label for="filter-sort">Sort By</label>
+                <select id="filter-sort">
+                  <option value="date-desc">Date: Newest First</option>
+                  <option value="date-asc">Date: Oldest First</option>
+                  <option value="amount-desc">Amount: Highest First</option>
+                  <option value="amount-asc">Amount: Lowest First</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Main Table List -->
+          <div class="table-card glass-card">
+            <div class="table-container">
+              <table class="transaction-table">
+                <thead>
+                  <tr>
+                    <th>Transaction Name</th>
+                    <th>Category</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="full-transactions-tbody">
+                  <!-- Rendered dynamically via JS -->
+                </tbody>
+              </table>
+              
+              <!-- Empty state inside table -->
+              <div class="empty-state hidden" id="table-empty-state">
+                <i data-lucide="search-code" class="empty-icon"></i>
+                <p class="empty-title">No matching transactions found</p>
+                <p class="empty-desc">Refine your search or clear filters to locate results.</p>
+              </div>
+            </div>
+            
+            <div class="table-footer">
+              <span class="pagination-info" id="table-pagination-info">Showing 0 of 0 transactions</span>
+            </div>
+          </div>
+        </section>
+        
+        <!-- ================= ANALYTICS VIEW ================= -->
+        <section id="view-analytics" class="content-section">
+          <div class="analytics-layout-grid">
+            
+            <!-- Category insights & stats list -->
+            <div class="analytics-sidebar-panel glass-card">
+              <div class="card-header">
+                <h3 class="card-title">Category Insights</h3>
+                <span class="card-subtitle">Detailed breakdown of expense categories</span>
+              </div>
+              
+              <ul class="insights-list" id="category-insights-list">
+                <!-- Dynamically Rendered -->
+              </ul>
+            </div>
+            
+            <!-- Interactive Analytics Chart Card -->
+            <div class="analytics-main-panel glass-card">
+              <div class="card-header space-between">
+                <div>
+                  <h3 class="card-title">Full Summary Performance</h3>
+                  <span class="card-subtitle">Income vs Expenses distribution comparison</span>
+                </div>
+              </div>
+              
+              <div class="analytics-charts-wrapper">
+                <div class="analytics-chart-container">
+                  <canvas id="analyticsCompareChart"></canvas>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+        </section>
+        
+        <!-- ================= SETTINGS VIEW ================= -->
+        <section id="view-settings" class="content-section">
+          <div class="settings-grid">
+            
+            <!-- Budget Config Card -->
+            <div class="settings-card glass-card">
+              <div class="card-header">
+                <h3 class="card-title">Budget Configuration</h3>
+                <span class="card-subtitle">Control your monthly outgoings thresholds</span>
+              </div>
+              
+              <form id="settings-budget-form" class="settings-form">
+                <div class="form-group">
+                  <label for="settings-budget-input">Monthly Expense Budget (₹)</label>
+                  <div class="input-wrapper">
+                    <i data-lucide="piggy-bank" class="input-icon"></i>
+                    <input type="number" id="settings-budget-input" min="0" placeholder="e.g., 2000">
+                  </div>
+                  <span class="form-hint">Set a monthly spending limit to trigger warning notifications. Set to 0 to disable warnings.</span>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                  <i data-lucide="check"></i>
+                  <span>Save Budget Configuration</span>
+                </button>
+              </form>
+            </div>
+            
+            <!-- Core App Control Panel Card -->
+            <div class="settings-card glass-card">
+              <div class="card-header">
+                <h3 class="card-title">Data Management</h3>
+                <span class="card-subtitle">Manage system memory and database exports</span>
+              </div>
+              
+              <div class="data-settings-actions">
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <span class="setting-title">Export Database</span>
+                    <span class="setting-desc">Download all transactions as standard comma separated values (CSV) for spreadsheet imports.</span>
+                  </div>
+                  <button class="btn btn-secondary btn-settings-csv" id="btn-settings-csv-export">
+                    <i data-lucide="download"></i>
+                    <span>Export (CSV)</span>
+                  </button>
+                </div>
+                
+                <hr class="setting-divider">
+                
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <span class="setting-title">Import Dummy Data</span>
+                    <span class="setting-desc">Load standard portfolio mock data to instantly populate charts and transaction lists for testing.</span>
+                  </div>
+                  <button class="btn btn-secondary" id="btn-load-mock-data">
+                    <i data-lucide="database"></i>
+                    <span>Load Mock Data</span>
+                  </button>
+                </div>
+                
+                <hr class="setting-divider">
+                
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <span class="setting-title">Reset Database</span>
+                    <span class="setting-desc text-danger">Wipe browser LocalStorage clean and clear all transaction logs permanently.</span>
+                  </div>
+                  <button class="btn btn-danger" id="btn-wipe-data">
+                    <i data-lucide="trash-2"></i>
+                    <span>Wipe All Records</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+        </section>
+        
+      </main>
+      
+      <!-- Footer details -->
+      <footer class="app-footer">
+        <span>AuraSpend Expense Tracker Dashboard &copy; 2026. Made with Google Antigravity.</span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal for wipe actions -->
+  <div class="modal-overlay hidden" id="modal-wipe-confirm">
+    <div class="modal-card glass-card">
+      <div class="modal-header text-danger">
+        <i data-lucide="alert-triangle" class="modal-icon"></i>
+        <h3>Clear Database Permanently?</h3>
+      </div>
+      <div class="modal-body">
+        <p>This action will wipe all transactions, budgets, and customization options from your browser's local storage. This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-modal-cancel">Cancel</button>
+        <button class="btn btn-danger" id="btn-modal-confirm">Confirm Wipe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Application Entry point -->
+  <script src="script.js?v=2"></script>
+</body>
+</html>
